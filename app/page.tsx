@@ -418,7 +418,11 @@ export default function Home() {
               <div className="submission-status" aria-live="polite" aria-atomic="true">
                 {paymentHasStarted ? (
                   <>
-                    <p className="submission-message success">Your details have been saved. Complete payment to finish your registration.</p>
+                    <p className="submission-message success">
+                      {flowState === "paymentComplete"
+                        ? "Payment complete. Your registration is confirmed."
+                        : "Your details have been saved. Complete payment to finish your registration."}
+                    </p>
                     {flowState === "paymentReady" && (
                       <button type="button" className="edit-details-action" onClick={handleEditRegistrationDetails}>Edit registration details</button>
                     )}
