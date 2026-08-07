@@ -1,6 +1,8 @@
 "use client";
 
-import { useEffect, useRef, useState, type FormEvent, type FormEventHandler } from "react";
+import { EmbeddedCheckout, EmbeddedCheckoutProvider } from "@stripe/react-stripe-js";
+import { loadStripe } from "@stripe/stripe-js";
+import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent, type FormEventHandler } from "react";
 
 const requiredMessage = "This field is required.";
 const phonePattern = /^\(?\d{3}\)?[-.\s]?\d{3}[-.\s]?\d{4}$/;
@@ -16,6 +18,9 @@ type RegistrationFlowState =
   | "error";
 
 type ErrorContext = "registration" | "payment" | null;
+
+const stripePublishableKey = process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY?.trim();
+const stripePromise = stripePublishableKey ? loadStripe(stripePublishableKey) : null;
 
 function formatPhoneNumber(value: string) {
   const digits = value.replace(/\D/g, "").slice(0, 10);
@@ -74,12 +79,6 @@ function validateFormData(formData: FormData) {
   return errors;
 }
 
-function initializePaymentPlaceholder() {
-  return new Promise<void>((resolve) => {
-    window.setTimeout(resolve, 900);
-  });
-}
-
 const eventDetails = [
   ["Saturday, October 10, 2026", "calendar"],
   ["9:30am – 4:00pm", "clock"],
@@ -100,6 +99,16 @@ function Icon({ type }: { type: string }) {
   return <span className="detail-icon" aria-hidden="true">{content}</span>;
 }
 
+function StripePayment({ clientSecret, onComplete }: { clientSecret: string; onComplete: () => void }) {
+  const options = useMemo(() => ({ clientSecret, onComplete }), [clientSecret, onComplete]);
+
+  return (
+    <EmbeddedCheckoutProvider stripe={stripePromise} options={options}>
+      <EmbeddedCheckout />
+    </EmbeddedCheckoutProvider>
+  );
+}
+
 export default function Home() {
   const [professionalRole, setProfessionalRole] = useState("");
   const [referralSource, setReferralSource] = useState("");
@@ -108,7 +117,11 @@ export default function Home() {
   const [errorContext, setErrorContext] = useState<ErrorContext>(null);
   const [submissionMessage, setSubmissionMessage] = useState("");
   const [editNotice, setEditNotice] = useState("");
+  const [isEditingSavedDetails, setIsEditingSavedDetails] = useState(false);
   const [isFormValid, setIsFormValid] = useState(false);
+  const [registrationId, setRegistrationId] = useState("");
+  const [checkoutClientSecret, setCheckoutClientSecret] = useState("");
+  const [paymentAttempt, setPaymentAttempt] = useState(0);
   const submittingRef = useRef(false);
   const registrationSavedRef = useRef(false);
 
@@ -118,31 +131,56 @@ export default function Home() {
     flowState === "paymentReady" ||
     flowState === "paymentComplete" ||
     (flowState === "error" && errorContext === "payment");
-  const formLocked = registrationSavedRef.current;
+  const formLocked = registrationSavedRef.current && !isEditingSavedDetails;
 
   useEffect(() => {
-    if (flowState !== "detailsSaved") return;
-    setFlowState("paymentLoading");
-  }, [flowState]);
+    if (!registrationId) return;
 
-  useEffect(() => {
-    if (flowState !== "paymentLoading") return;
+    if (!stripePromise) {
+      setErrorContext("payment");
+      setFlowState("error");
+      return;
+    }
 
     let cancelled = false;
-    initializePaymentPlaceholder()
-      .then(() => {
-        if (!cancelled) setFlowState("paymentReady");
-      })
-      .catch(() => {
-        if (cancelled) return;
+    const controller = new AbortController();
+
+    async function initializePayment() {
+      setCheckoutClientSecret("");
+      setErrorContext(null);
+      setFlowState("paymentLoading");
+
+      try {
+        const response = await fetch("/api/checkout-session", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ registrationId }),
+          signal: controller.signal,
+        });
+        const result = (await response.json()) as { clientSecret?: string; error?: string };
+
+        if (!response.ok || !result.clientSecret) {
+          throw new Error(result.error ?? "Stripe did not return a client secret.");
+        }
+
+        if (!cancelled) {
+          setCheckoutClientSecret(result.clientSecret);
+          setFlowState("paymentReady");
+        }
+      } catch (error) {
+        if (cancelled || (error instanceof DOMException && error.name === "AbortError")) return;
         setErrorContext("payment");
         setFlowState("error");
-      });
+      }
+    }
+
+    initializePayment();
 
     return () => {
       cancelled = true;
+      controller.abort();
     };
-  }, [flowState]);
+  }, [registrationId, paymentAttempt]);
 
   const handleFormValidityChange: FormEventHandler<HTMLFormElement> = (event) => {
     if (registrationSavedRef.current) return;
@@ -152,11 +190,17 @@ export default function Home() {
   function retryPayment() {
     setErrorContext(null);
     setFlowState("paymentLoading");
+    setPaymentAttempt((attempt) => attempt + 1);
   }
 
+  const handlePaymentComplete = useCallback(() => {
+    setFlowState("paymentComplete");
+  }, []);
+
   function handleEditRegistrationDetails() {
-    // Future payment integration: replace this notice with a row-update flow, never a second registration POST.
-    setEditNotice("Editing saved details will be available with the payment integration. Your saved registration has not changed.");
+    // Future payment integration: replace local review with a row-update flow, never a second registration POST.
+    setIsEditingSavedDetails(true);
+    setEditNotice("You can review your details here. Changes are not saved to the existing registration yet.");
   }
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
@@ -203,6 +247,7 @@ export default function Home() {
       const result = (await response.json()) as {
         error?: string;
         fieldErrors?: Record<string, string>;
+        registrationId?: string;
       };
 
       if (!response.ok) {
@@ -216,8 +261,16 @@ export default function Home() {
       registrationSavedRef.current = true;
       setErrors({});
       setErrorContext(null);
-      setFlowState("detailsSaved");
       setSubmissionMessage("Your details have been saved. Complete payment to finish your registration.");
+
+      if (!result.registrationId) {
+        setErrorContext("payment");
+        setFlowState("error");
+        return;
+      }
+
+      setRegistrationId(result.registrationId);
+      setFlowState("detailsSaved");
     } catch {
       setErrorContext("registration");
       setFlowState("error");
@@ -350,7 +403,7 @@ export default function Home() {
               </fieldset>
 
               <label>How did you hear about this event? <span>*</span>
-                <select name="referralSource" disabled={formLocked} value={referralSource} onChange={(event) => setReferralSource(event.target.value)} aria-invalid={Boolean(errors.referralSource)}><option value="" disabled>Select one</option><option>Colleague</option><option>Friend or family</option><option>Other</option><option>Social media</option><option>Web search</option></select>
+                <select name="referralSource" disabled={formLocked} defaultValue="" onChange={(event) => setReferralSource(event.target.value)} aria-invalid={Boolean(errors.referralSource)}><option value="" disabled>Select one</option><option value="Colleague">Colleague</option><option value="Friend or family">Friend or family</option><option value="Other">Other</option><option value="Social media">Social media</option><option value="Web search">Web search</option></select>
                 {errors.referralSource && <small className="field-error">{errors.referralSource}</small>}
               </label>
               {referralSource === "Other" && (
@@ -400,7 +453,11 @@ export default function Home() {
               {flowState === "paymentReady" && (
                 <>
                   <p>Secure payment is ready.</p>
-                  <div className="payment-placeholder payment-ready-placeholder"><strong>Secure payment</strong><span>Payment form placeholder</span></div>
+                  {checkoutClientSecret && (
+                    <div className="stripe-checkout-container">
+                      <StripePayment clientSecret={checkoutClientSecret} onComplete={handlePaymentComplete} />
+                    </div>
+                  )}
                 </>
               )}
               {flowState === "paymentComplete" && <p className="payment-complete-message">Payment complete. Your registration is confirmed.</p>}

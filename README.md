@@ -28,4 +28,16 @@ The form submits to `POST /api/registrations`, which validates the request on th
 
 6. Run `npm run dev`, open `http://localhost:3000`, submit a valid registration, and confirm a new row appears in the Sheet.
 
-Amounts are derived on the server: enrolled Tribal members are `$100`; all other registrations are `$195`. Until Stripe is added, new rows use `Pending` payment status and blank Stripe identifiers.
+Amounts are derived on the server: enrolled Tribal members are `$100`; all other registrations are `$195`. New rows use `Pending` payment status until Stripe confirms payment through the webhook.
+
+## Stripe Embedded Checkout
+
+Add Stripe test keys to `.env.local`:
+
+- `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY=pk_test_...`
+- `STRIPE_SECRET_KEY=sk_test_...`
+- Leave `STRIPE_WEBHOOK_SECRET` blank until a webhook endpoint or Stripe CLI listener is configured.
+
+Restart `npm run dev` after changing environment variables. Submit a registration, confirm the Embedded Checkout form appears in the payment card, and use Stripe's test card `4242 4242 4242 4242` with any future expiration date, any three-digit CVC, and any postal code.
+
+Embedded Checkout can be loaded and tested before webhook setup. Until `STRIPE_WEBHOOK_SECRET` is configured and Stripe sends `checkout.session.completed` to `POST /api/webhooks/stripe`, the Sheet row will remain `Pending`. Once configured, the webhook updates that existing row to `Paid` and writes the Stripe Session and Payment Intent IDs.

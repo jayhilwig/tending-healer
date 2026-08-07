@@ -1,10 +1,7 @@
-import { createSign } from "node:crypto";
+import { appendRegistrationRow } from "../../../lib/google-sheets";
+import { assertRegistrationIdConfiguration, createRegistrationId } from "../../../lib/registration-id";
 
 export const runtime = "nodejs";
-
-const SHEET_TAB = "Registrations";
-const TOKEN_URL = "https://oauth2.googleapis.com/token";
-const SHEETS_SCOPE = "https://www.googleapis.com/auth/spreadsheets";
 
 const professionalRoles = [
   "Doctor",
@@ -136,86 +133,29 @@ function validateRegistration(input: unknown): ValidationResult {
   };
 }
 
-function encodeBase64Url(value: object) {
-  return Buffer.from(JSON.stringify(value)).toString("base64url");
-}
-
-async function getGoogleAccessToken(clientEmail: string, privateKey: string) {
-  const now = Math.floor(Date.now() / 1000);
-  const header = encodeBase64Url({ alg: "RS256", typ: "JWT" });
-  const payload = encodeBase64Url({
-    iss: clientEmail,
-    scope: SHEETS_SCOPE,
-    aud: TOKEN_URL,
-    iat: now,
-    exp: now + 3600,
-  });
-  const unsignedToken = `${header}.${payload}`;
-  const signature = createSign("RSA-SHA256").update(unsignedToken).sign(privateKey).toString("base64url");
-
-  const response = await fetch(TOKEN_URL, {
-    method: "POST",
-    headers: { "Content-Type": "application/x-www-form-urlencoded" },
-    body: new URLSearchParams({
-      grant_type: "urn:ietf:params:oauth:grant-type:jwt-bearer",
-      assertion: `${unsignedToken}.${signature}`,
-    }),
-    cache: "no-store",
-  });
-
-  if (!response.ok) throw new Error(`Google authentication failed with status ${response.status}.`);
-  const result = (await response.json()) as { access_token?: string };
-  if (!result.access_token) throw new Error("Google authentication returned no access token.");
-  return result.access_token;
-}
-
 async function appendRegistration(registration: Registration) {
-  const clientEmail = process.env.GOOGLE_SHEETS_CLIENT_EMAIL?.trim();
-  const privateKey = process.env.GOOGLE_SHEETS_PRIVATE_KEY?.replace(/\\n/g, "\n").trim();
-  const spreadsheetId = process.env.GOOGLE_SHEETS_SPREADSHEET_ID?.trim();
-
-  if (!clientEmail || !privateKey || !spreadsheetId) {
-    throw new Error("Google Sheets environment variables are not configured.");
-  }
-
-  const accessToken = await getGoogleAccessToken(clientEmail, privateKey);
   const amount = registration.tribal === "Yes" ? 100 : 195;
   const role = registration.professionalRole === "Other" && registration.otherRole
     ? `Other: ${registration.otherRole}`
     : registration.professionalRole;
-  const range = encodeURIComponent(`${SHEET_TAB}!A:O`);
-  const response = await fetch(
-    `https://sheets.googleapis.com/v4/spreadsheets/${encodeURIComponent(spreadsheetId)}/values/${range}:append?valueInputOption=RAW&insertDataOption=INSERT_ROWS`,
-    {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${accessToken}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        values: [[
-          new Date().toISOString(),
-          registration.firstName,
-          registration.lastName,
-          registration.email,
-          registration.phone,
-          registration.emergencyName,
-          registration.emergencyPhone,
-          registration.tribal,
-          role,
-          registration.referralSource,
-          registration.referralDetails,
-          amount,
-          "Pending",
-          "",
-          "",
-        ]],
-      }),
-      cache: "no-store",
-    },
-  );
 
-  if (!response.ok) throw new Error(`Google Sheets append failed with status ${response.status}.`);
+  return appendRegistrationRow([
+    new Date().toISOString(),
+    registration.firstName,
+    registration.lastName,
+    registration.email,
+    registration.phone,
+    registration.emergencyName,
+    registration.emergencyPhone,
+    registration.tribal,
+    role,
+    registration.referralSource,
+    registration.referralDetails,
+    amount,
+    "Pending",
+    "",
+    "",
+  ]);
 }
 
 export async function POST(request: Request) {
@@ -236,8 +176,9 @@ export async function POST(request: Request) {
   }
 
   try {
-    await appendRegistration(validation.data);
-    return Response.json({ success: true }, { status: 201 });
+    assertRegistrationIdConfiguration();
+    const rowNumber = await appendRegistration(validation.data);
+    return Response.json({ success: true, registrationId: createRegistrationId(rowNumber) }, { status: 201 });
   } catch (error) {
     console.error("Registration submission failed:", error);
     return Response.json(

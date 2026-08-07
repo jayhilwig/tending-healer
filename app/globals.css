@@ -194,8 +194,7 @@ button:focus-visible { outline: 3px solid rgba(201,155,69,.45); outline-offset: 
 .price-alt { font-weight: 600; margin-top: 10px; }
 .payment-divider { height: 1px; background: var(--gold); margin: 26px 0; }
 .payment-placeholder { min-height: 180px; border: 1px dashed #a8ae99; border-radius: 16px; background: white; display: grid; place-items: center; color: var(--muted); margin: 22px 0; }
-.payment-ready-placeholder { align-content: center; gap: 4px; border-style: solid; border-color: var(--sage); color: var(--forest); }
-.payment-ready-placeholder span { color: var(--muted); font-size: .9rem; }
+.stripe-checkout-container { margin: 22px -12px 0; text-align: left; }
 .payment-loading-state { min-height: 180px; margin: 22px 0; border: 1px dashed #a8ae99; border-radius: 16px; background: white; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 12px; color: var(--forest); }
 .payment-loading-state .loading-spinner { border-color: rgba(18,63,53,.2); border-top-color: var(--forest); }
 .payment-loading-state p, .payment-error-state p { margin: 0; }
