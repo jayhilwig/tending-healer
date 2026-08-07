@@ -1,6 +1,7 @@
 import Stripe from "stripe";
 
-import { markRegistrationPaid } from "../../../../lib/google-sheets";
+import { getRegistrationRow, markRegistrationPaid } from "../../../../lib/google-sheets";
+import { sendRegistrationConfirmation } from "../../../../lib/mailgun";
 import { readRegistrationId } from "../../../../lib/registration-id";
 import { getStripe, StripeConfigurationError } from "../../../../lib/stripe";
 
@@ -62,7 +63,36 @@ export async function POST(request: Request) {
       return Response.json({ received: true, ignored: true });
     }
 
-    return Response.json({ received: true, alreadyProcessed: result.alreadyProcessed });
+    if (result.alreadyProcessed) {
+      return Response.json({ received: true, alreadyProcessed: true });
+    }
+
+    let emailSent = false;
+
+    try {
+      const registration = await getRegistrationRow(rowNumber);
+      if (!registration) {
+        throw new Error(`Registration row ${rowNumber} could not be loaded after payment.`);
+      }
+      if (session.amount_total === null || !session.currency) {
+        throw new Error(`Stripe Checkout Session ${session.id} has no completed payment amount.`);
+      }
+
+      await sendRegistrationConfirmation({
+        to: registration.email,
+        firstName: registration.firstName,
+        amountPaid: session.amount_total,
+        currency: session.currency,
+      });
+      emailSent = true;
+    } catch (error) {
+      console.error(
+        `Registration confirmation email failed for Stripe Checkout Session ${session.id}, row ${rowNumber}:`,
+        error,
+      );
+    }
+
+    return Response.json({ received: true, alreadyProcessed: false, emailSent });
   } catch (error) {
     console.error("Stripe payment could not be written to Google Sheets:", error);
     return Response.json({ error: "Payment update failed." }, { status: 500 });
