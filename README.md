@@ -1,6 +1,6 @@
-# Tending the Healer — visual registration prototype
+# Tending the Healer registration
 
-A visual-only Next.js pass for the registration page planned for `thresholdtherapist.com`.
+A Next.js registration page for the Tending the Healer retreat.
 
 ## Run locally
 
@@ -11,22 +11,21 @@ npm run dev
 
 Open `http://localhost:3000`.
 
-## Current scope
+## Google Sheets registration setup
 
-- Updated flyer-inspired visual system
-- Cormorant headings and Assistant body/UI text
-- Responsive custom registration form
-- Exact circular Medicine Wheel and facilitator portraits
-- Stripe payment placeholder
-- Google Sheets integration intentionally not connected yet
+The form submits to `POST /api/registrations`, which validates the request on the server and appends one row to the `Registrations` tab. Google credentials are used only by the server route.
 
-## Next implementation pass
+1. In Google Cloud, enable the Google Sheets API for the project used by the service account.
+2. Create or select a service account and generate a JSON key.
+3. Share the destination Google Sheet with the service account's `client_email` as an Editor.
+4. Copy `.env.example` to `.env.local` and set:
+   - `GOOGLE_SHEETS_CLIENT_EMAIL` to the service account's `client_email`.
+   - `GOOGLE_SHEETS_PRIVATE_KEY` to its `private_key`. Keep the escaped `\n` characters when storing it on one line.
+   - `GOOGLE_SHEETS_SPREADSHEET_ID` to the spreadsheet ID from its URL.
+5. Confirm the Sheet contains a tab named `Registrations` with these headers in columns A–O:
 
-1. Add client-side validation.
-2. Create a server endpoint for registration intake.
-3. Add Stripe Embedded Checkout.
-4. Confirm payment through a Stripe webhook.
-5. Append only paid registrations to Google Sheets.
-6. Add confirmation email and success state.
+   `Submitted At`, `First Name`, `Last Name`, `Email`, `Phone`, `Emergency Contact Name`, `Emergency Contact Phone`, `Tribal Member`, `Professional Role`, `Referral Source`, `Referral Details`, `Amount`, `Payment Status`, `Stripe Session ID`, `Stripe Payment ID`.
 
-The form and payment controls in this package are intentionally non-functional for the visual review.
+6. Run `npm run dev`, open `http://localhost:3000`, submit a valid registration, and confirm a new row appears in the Sheet.
+
+Amounts are derived on the server: enrolled Tribal members are `$100`; all other registrations are `$195`. Until Stripe is added, new rows use `Pending` payment status and blank Stripe identifiers.
