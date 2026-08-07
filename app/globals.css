@@ -227,7 +227,7 @@ footer { border-top: 1px solid var(--line); background: #fffaf2; }
   .header-link { display: none; }
   .hero { gap: 18px; padding: 38px 0 28px; }
   .hero-intro { margin-bottom: 0; }
-  .wheel-frame { width: min(68vw, 285px); margin: 0 auto; }
+  .wheel-frame { width: min(68vw, 285px); margin: -40px auto -74px; }
   .overview { padding: 0 0 58px; }
   .overview-copy { padding: 0; }
   h1 { font-size: clamp(4.4rem, 24vw, 6.6rem); }
