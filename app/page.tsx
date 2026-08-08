@@ -84,6 +84,7 @@ const eventDetails = [
   ["9:30am – 4:00pm", "clock"],
   ["House of Welcome Longhouse, The Evergreen State College, Olympia, WA", "pin"],
   ["$195 per person · $100 for enrolled Tribal members", "dollar"],
+  ["Beverages and light refreshments will be provided. Please bring your own lunch or purchase lunch at The Evergreen State College cafeteria.", "cookie"],
 ] as const;
 
 function MedicineWheel() {
@@ -95,6 +96,14 @@ function MedicineWheel() {
 }
 
 function Icon({ type }: { type: string }) {
+  if (type === "cookie") {
+    return (
+      <span className="detail-icon" aria-hidden="true">
+        <img src="/icons/cookie.svg" alt="" />
+      </span>
+    );
+  }
+
   const content = type === "calendar" ? "▦" : type === "clock" ? "◷" : type === "pin" ? "⌖" : "$";
   return <span className="detail-icon" aria-hidden="true">{content}</span>;
 }
@@ -324,6 +333,14 @@ export default function Home() {
                 <Icon type={icon} />
                 {icon === "pin" ? (
                   <a href="https://www.google.com/maps/search/?api=1&query=House%20of%20Welcome%20Longhouse%20The%20Evergreen%20State%20College%20Olympia%20WA" target="_blank" rel="noreferrer">{text}</a>
+                ) : icon === "cookie" ? (
+                  <span>
+                    <strong>Lunch &amp; refreshments</strong><br />
+                    Beverages and light refreshments will be provided. Please bring your own lunch or purchase lunch at{" "}
+                    <a href="https://www.evergreen.edu/student-life/dining" target="_blank" rel="noreferrer">
+                      The Evergreen State College cafeteria
+                    </a>.
+                  </span>
                 ) : (
                   <span>{text}</span>
                 )}

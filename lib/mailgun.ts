@@ -60,6 +60,9 @@ House of Welcome Longhouse
 The Evergreen State College
 Olympia, WA
 
+Lunch & refreshments
+Beverages and light refreshments will be provided. Please bring your own lunch or purchase lunch at The Evergreen State College cafeteria.
+
 Additional retreat information will be sent closer to the event.
 
 Cancellation policy
@@ -75,6 +78,8 @@ Saturday, October 10, 2026<br>
 <p>House of Welcome Longhouse<br>
 The Evergreen State College<br>
 Olympia, WA</p>
+<p><strong>Lunch &amp; refreshments</strong><br>
+Beverages and light refreshments will be provided. Please bring your own lunch or purchase lunch at <a href="https://www.evergreen.edu/student-life/dining">The Evergreen State College cafeteria</a>.</p>
 <p>Additional retreat information will be sent closer to the event.</p>
 <p><strong>Cancellation policy</strong><br>
 Cancellations received by October 3, 2026 are eligible for a refund. After October 3, registration fees are non-refundable. If you need to cancel or make a change to your registration, reply to this email or contact <a href="mailto:kari@thresholdtherapist.com">kari@thresholdtherapist.com</a>.</p>

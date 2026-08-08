@@ -28,6 +28,7 @@ CALENDAR_ICON = ICONS / "calendar-days.svg"
 CLOCK_ICON = ICONS / "clock.svg"
 PIN_ICON = ICONS / "map-pin.svg"
 DOLLAR_ICON = ICONS / "dollar-sign.svg"
+COOKIE_ICON = ICONS / "cookie.svg"
 OUT = OUTPUT / "tending-the-healer-flyer.pdf"
 
 PAGE_W, PAGE_H = letter
@@ -253,16 +254,19 @@ def draw_dollar_icon(c, cx, cy):
     draw_lucide_icon(c, DOLLAR_ICON, cx, cy, 18)
 
 
-def draw_detail_row(c, cy, lines, icon_drawer, card_x, card_w):
+def draw_cookie_icon(c, cx, cy):
+    draw_lucide_icon(c, COOKIE_ICON, cx, cy, 18)
+
+
+def draw_detail_row(c, cy, lines, icon_drawer, card_x, card_w, size=9.7, line_height=13):
     cx = card_x + 29
     c.setFillColor(SAGE)
     c.circle(cx, cy, 15.5, stroke=0, fill=1)
     icon_drawer(c, cx, cy)
     text_x = card_x + 58
-    line_height = 13
     text_y = cy + ((len(lines) - 1) * line_height / 2) - 2.5
     c.setFillColor(INK)
-    c.setFont(BODY_MEDIUM, 9.7)
+    c.setFont(BODY_MEDIUM, size)
     for line in lines:
         c.drawString(text_x, text_y, line)
         text_y -= line_height
@@ -326,13 +330,14 @@ c.drawCentredString(CARD_X + CARD_W / 2, 500, "Retreat Details")
 draw_ornament(c, CARD_X + 45, CARD_X + CARD_W - 45, 486)
 
 detail_rows = [
-    (456, ["Saturday,", "October 10th, 2026"], draw_calendar_icon),
-    (411, ["9:30am - 4:00pm"], draw_clock_icon),
-    (363, ["House of Welcome Longhouse,", "Evergreen State College,", "Olympia, WA"], draw_pin_icon),
-    (306, ["Cost per person: $195", "(discount available for", "enrolled tribal members)"], draw_dollar_icon),
+    (463, ["Saturday,", "October 10th, 2026"], draw_calendar_icon, 9.7, 13),
+    (426, ["9:30am - 4:00pm"], draw_clock_icon, 9.7, 13),
+    (383, ["House of Welcome Longhouse,", "Evergreen State College,", "Olympia, WA"], draw_pin_icon, 9.7, 13),
+    (339, ["Cost per person: $195", "(discount available for", "enrolled tribal members)"], draw_dollar_icon, 9.7, 13),
+    (296, ["Beverages & light refreshments", "provided. Bring lunch or", "purchase at Evergreen dining."], draw_cookie_icon, 9.7, 13),
 ]
-for index, (cy, lines, icon) in enumerate(detail_rows):
-    draw_detail_row(c, cy, lines, icon, CARD_X, CARD_W)
+for index, (cy, lines, icon, size, line_height) in enumerate(detail_rows):
+    draw_detail_row(c, cy, lines, icon, CARD_X, CARD_W, size, line_height)
     if index < len(detail_rows) - 1:
         separator_y = (cy + detail_rows[index + 1][0]) / 2
         c.setStrokeColor(GOLD)
