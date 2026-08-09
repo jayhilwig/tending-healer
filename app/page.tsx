@@ -96,16 +96,19 @@ function MedicineWheel() {
 }
 
 function Icon({ type }: { type: string }) {
-  if (type === "cookie") {
-    return (
-      <span className="detail-icon" aria-hidden="true">
-        <img src="/icons/cookie.svg" alt="" />
-      </span>
-    );
-  }
+  const iconSources: Record<string, string> = {
+    calendar: "/icons/calendar-days.svg",
+    clock: "/icons/clock.svg",
+    pin: "/icons/map-pin.svg",
+    dollar: "/icons/dollar-sign.svg",
+    cookie: "/icons/cookie.svg",
+  };
 
-  const content = type === "calendar" ? "▦" : type === "clock" ? "◷" : type === "pin" ? "⌖" : "$";
-  return <span className="detail-icon" aria-hidden="true">{content}</span>;
+  return (
+    <span className="detail-icon" aria-hidden="true">
+      <img src={iconSources[type]} alt="" />
+    </span>
+  );
 }
 
 function StripePayment({ clientSecret, onComplete }: { clientSecret: string; onComplete: () => void }) {
