@@ -30,6 +30,7 @@ PIN_ICON = ICONS / "map-pin.svg"
 DOLLAR_ICON = ICONS / "dollar-sign.svg"
 COOKIE_ICON = ICONS / "cookie.svg"
 OUT = OUTPUT / "tending-the-healer-flyer.pdf"
+REGISTRATION_URL = "https://tinyurl.com/tend-healer"
 
 PAGE_W, PAGE_H = letter
 ART_X = 42
@@ -104,6 +105,14 @@ def draw_centered_tracked(c, text, center_x, y, font, size, tracking, color):
     for char, width in zip(text, widths):
         c.drawString(x, y, char)
         x += width + tracking
+
+
+def draw_tracked(c, text, x, y, font, size, tracking, color):
+    c.setFillColor(color)
+    c.setFont(font, size)
+    for char in text:
+        c.drawString(x, y, char)
+        x += pdfmetrics.stringWidth(char, font, size) + tracking
 
 
 def trimmed_image(path):
@@ -276,23 +285,21 @@ c = canvas.Canvas(str(OUT), pagesize=letter)
 c.setTitle("Tending the Healer - Retreat Flyer")
 c.setAuthor("Threshold Therapy & Consulting")
 
-# The reference artwork is a 2:3 raster centered on a letter page.
-c.setFillColor(colors.white)
-c.rect(0, 0, PAGE_W, PAGE_H, fill=1, stroke=0)
+# Keep the Letter page size while extending the cream artwork to both page edges.
 c.setFillColor(CREAM)
-c.rect(ART_X, 0, ART_W, PAGE_H, fill=1, stroke=0)
+c.rect(0, 0, PAGE_W, PAGE_H, fill=1, stroke=0)
 
 # Hero
-LEFT = 66
+LEFT = 54
 c.setFillColor(DEEP)
 c.setFont(SERIF_MEDIUM, 55)
 c.drawString(LEFT, 715, "Tending")
 c.drawString(LEFT, 649, "the Healer")
 draw_ornament(c, LEFT, 312, 620)
-draw_centered_tracked(
+draw_tracked(
     c,
     "A RETREAT FOR HEALTHCARE PROFESSIONALS",
-    189,
+    LEFT,
     597,
     SERIF_BOLD,
     10.2,
@@ -310,13 +317,9 @@ paragraphs = [
 ]
 y = 568
 for index, paragraph in enumerate(paragraphs):
-    y = draw_wrapped(c, paragraph, LEFT, y, 205, size=8.5, leading=12)
+    y = draw_wrapped(c, paragraph, LEFT, y, 239, size=10.5, leading=12)
     if index < len(paragraphs) - 1:
-        y -= 11
-
-c.setStrokeColor(GOLD)
-c.setLineWidth(0.45)
-c.line(312, 300, 312, 568)
+        y -= 13
 
 # Retreat details card
 CARD_X, CARD_Y, CARD_W, CARD_H = 331, 274, 230, 260
@@ -347,7 +350,7 @@ for index, (cy, lines, icon, size, line_height) in enumerate(detail_rows):
         c.setDash()
 
 # Facilitators
-FAC_X, FAC_Y, FAC_W, FAC_H = 54, 105, 504, 148
+FAC_X, FAC_Y, FAC_W, FAC_H = 54, 109, 504, 148
 c.setFillColor(PALE)
 c.setStrokeColor(LINE)
 c.setLineWidth(0.7)
@@ -394,16 +397,21 @@ draw_ornament(c, 220, 274, 27)
 c.setStrokeColor(GOLD)
 c.setLineWidth(0.7)
 c.line(339, 20, 339, 84)
-c.setFillColor(DEEP)
-c.setFont(BOLD, 8.5)
-c.drawString(360, 68, "Register online:")
+CTA_X, CTA_Y, CTA_W, CTA_H = 360, 56, 108, 25
+c.setFillColor(RUST)
+c.roundRect(CTA_X, CTA_Y, CTA_W, CTA_H, 9, fill=1, stroke=0)
+c.setFillColor(colors.white)
+c.setFont(BOLD, 14)
+c.drawCentredString(CTA_X + CTA_W / 2, CTA_Y + 7.5, "Register")
+c.linkURL(REGISTRATION_URL, (CTA_X, CTA_Y, CTA_X + CTA_W, CTA_Y + CTA_H), relative=0)
 c.setFillColor(RUST)
 c.setFont(BODY_SEMIBOLD, 8.2)
-c.drawString(360, 51, "tinyurl.com/tend-healer")
+c.drawString(360, 42, "tinyurl.com/tend-healer")
+c.linkURL(REGISTRATION_URL, (360, 40, 457, 51), relative=0)
 c.setFillColor(INK)
-c.setFont(BODY, 7.2)
-c.drawString(360, 35, "Scan the QR code to register")
-draw_qr_svg(c, QR, 489, 20, 66)
+c.setFont(BODY_SEMIBOLD, 8.2)
+c.drawCentredString(512, 20, "Scan to register")
+draw_qr_svg(c, QR, 486, 29, 53)
 
 c.showPage()
 c.save()
