@@ -132,6 +132,29 @@ export async function getRegistrationRow(rowNumber: number): Promise<SavedRegist
   };
 }
 
+export async function clearRegistrationRow(rowNumber: number) {
+  if (!Number.isSafeInteger(rowNumber) || rowNumber < 2) {
+    throw new Error("Invalid registration row number.");
+  }
+
+  const { accessToken, spreadsheetId } = await getAuthorizedSheet();
+  const range = encodeURIComponent(`${SHEET_TAB}!A${rowNumber}:O${rowNumber}`);
+  const response = await fetch(
+    `https://sheets.googleapis.com/v4/spreadsheets/${encodeURIComponent(spreadsheetId)}/values/${range}:clear`,
+    {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+        "Content-Type": "application/json",
+      },
+      body: "{}",
+      cache: "no-store",
+    },
+  );
+
+  if (!response.ok) throw new Error(`Google Sheets clear failed with status ${response.status}.`);
+}
+
 export async function markRegistrationPaid(
   rowNumber: number,
   stripeSessionId: string,

@@ -133,9 +133,14 @@ export default function Home() {
   const [isFormValid, setIsFormValid] = useState(false);
   const [registrationId, setRegistrationId] = useState("");
   const [checkoutClientSecret, setCheckoutClientSecret] = useState("");
+  const [checkoutSessionId, setCheckoutSessionId] = useState("");
   const [paymentAttempt, setPaymentAttempt] = useState(0);
+  const [isCancelling, setIsCancelling] = useState(false);
+  const [cancelError, setCancelError] = useState("");
   const submittingRef = useRef(false);
   const registrationSavedRef = useRef(false);
+  const formRef = useRef<HTMLFormElement>(null);
+  const paymentCardRef = useRef<HTMLElement>(null);
 
   const paymentHasStarted =
     flowState === "detailsSaved" ||
@@ -169,14 +174,15 @@ export default function Home() {
           body: JSON.stringify({ registrationId }),
           signal: controller.signal,
         });
-        const result = (await response.json()) as { clientSecret?: string; error?: string };
+        const result = (await response.json()) as { clientSecret?: string; checkoutSessionId?: string; error?: string };
 
-        if (!response.ok || !result.clientSecret) {
+        if (!response.ok || !result.clientSecret || !result.checkoutSessionId) {
           throw new Error(result.error ?? "Stripe did not return a client secret.");
         }
 
         if (!cancelled) {
           setCheckoutClientSecret(result.clientSecret);
+          setCheckoutSessionId(result.checkoutSessionId);
           setFlowState("paymentReady");
         }
       } catch (error) {
@@ -193,6 +199,11 @@ export default function Home() {
       controller.abort();
     };
   }, [registrationId, paymentAttempt]);
+
+  useEffect(() => {
+    if (flowState !== "paymentReady") return;
+    paymentCardRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+  }, [flowState]);
 
   const handleFormValidityChange: FormEventHandler<HTMLFormElement> = (event) => {
     if (registrationSavedRef.current) return;
@@ -213,6 +224,49 @@ export default function Home() {
     // Future payment integration: replace local review with a row-update flow, never a second registration POST.
     setIsEditingSavedDetails(true);
     setEditNotice("You can review your details here. Changes are not saved to the existing registration yet.");
+  }
+
+  async function handleCancelRegistration() {
+    if (!registrationId || !checkoutSessionId || isCancelling) return;
+    if (!window.confirm("Cancel this registration and remove all entered information?")) return;
+
+    setIsCancelling(true);
+    setCancelError("");
+
+    try {
+      const response = await fetch("/api/cancel-registration", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ registrationId, checkoutSessionId }),
+      });
+      const result = (await response.json()) as { error?: string };
+
+      if (!response.ok) {
+        throw new Error(result.error ?? "We could not cancel your registration. Please try again.");
+      }
+
+      formRef.current?.reset();
+      registrationSavedRef.current = false;
+      submittingRef.current = false;
+      setProfessionalRole("");
+      setReferralSource("");
+      setErrors({});
+      setFlowState("editing");
+      setErrorContext(null);
+      setSubmissionMessage("");
+      setEditNotice("");
+      setIsEditingSavedDetails(false);
+      setIsFormValid(false);
+      setRegistrationId("");
+      setCheckoutClientSecret("");
+      setCheckoutSessionId("");
+      setPaymentAttempt(0);
+      requestAnimationFrame(() => document.getElementById("register")?.scrollIntoView({ behavior: "smooth", block: "start" }));
+    } catch (error) {
+      setCancelError(error instanceof Error ? error.message : "We could not cancel your registration. Please try again.");
+    } finally {
+      setIsCancelling(false);
+    }
   }
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
@@ -382,13 +436,37 @@ export default function Home() {
       </section>
 
       <section className="registration-wrap" id="register">
-        <div className="shell registration-layout">
+        <div className={`shell registration-layout${paymentHasStarted ? " payment-active" : ""}`}>
           <div className="registration-card">
-            <p className="section-kicker">Registration</p>
-            <h2>Reserve your place</h2>
-            <p className="form-intro">Complete the form below. Payment will be collected securely after you continue.</p>
+            {paymentHasStarted && !isEditingSavedDetails && (
+              <div className="registration-saved-summary">
+                <div>
+                  <p className="section-kicker">Registration details saved</p>
+                  <h2>{flowState === "paymentComplete" ? "Registration confirmed" : "Complete payment to finish"}</h2>
+                  <p className="form-intro">
+                    {flowState === "paymentComplete"
+                      ? "Your payment is complete and your place is confirmed."
+                      : "Your place is not confirmed until payment is complete."}
+                  </p>
+                </div>
+                {flowState === "paymentReady" && (
+                  <div className="registration-actions">
+                    <button type="button" className="secondary-action" onClick={handleEditRegistrationDetails} disabled={isCancelling}>Edit registration details</button>
+                    <button type="button" className="secondary-action cancel-action" onClick={handleCancelRegistration} disabled={isCancelling} aria-busy={isCancelling}>
+                      {isCancelling ? "Cancelling…" : "Cancel"}
+                    </button>
+                    {cancelError && <p className="cancel-error" role="alert">{cancelError}</p>}
+                  </div>
+                )}
+              </div>
+            )}
 
-            <form className="visual-form" noValidate onSubmit={handleSubmit} onInput={handleFormValidityChange} onChange={handleFormValidityChange}>
+            <div hidden={paymentHasStarted && !isEditingSavedDetails}>
+              <p className="section-kicker">Registration</p>
+              <h2>Reserve your place</h2>
+              <p className="form-intro">Complete the form below. Payment will be collected securely after you continue.</p>
+
+              <form ref={formRef} className="visual-form" noValidate onSubmit={handleSubmit} onInput={handleFormValidityChange} onChange={handleFormValidityChange}>
               <div className="form-grid">
                 <label>First name <span>*</span><input name="firstName" disabled={formLocked} aria-invalid={Boolean(errors.firstName)} />{errors.firstName && <small className="field-error">{errors.firstName}</small>}</label>
                 <label>Last name <span>*</span><input name="lastName" disabled={formLocked} aria-invalid={Boolean(errors.lastName)} />{errors.lastName && <small className="field-error">{errors.lastName}</small>}</label>
@@ -443,7 +521,7 @@ export default function Home() {
                         ? "Payment complete. Your registration is confirmed."
                         : "Your details have been saved. Complete payment to finish your registration."}
                     </p>
-                    {flowState === "paymentReady" && (
+                    {flowState === "paymentReady" && !isEditingSavedDetails && (
                       <button type="button" className="edit-details-action" onClick={handleEditRegistrationDetails}>Edit registration details</button>
                     )}
                     {editNotice && <p className="edit-notice">{editNotice}</p>}
@@ -454,10 +532,11 @@ export default function Home() {
                   <p className="prototype-note">Complete all required fields to continue.</p>
                 )}
               </div>
-            </form>
+              </form>
+            </div>
           </div>
 
-          <aside className="payment-card">
+          <aside ref={paymentCardRef} className="payment-card">
             <div className="botanical-mark" aria-hidden="true">
               <img src="/hummingbird.webp" alt="" />
             </div>
@@ -476,7 +555,7 @@ export default function Home() {
               )}
               {flowState === "paymentReady" && (
                 <>
-                  <p>Secure payment is ready.</p>
+                  <div className="payment-required-alert" role="alert">Payment is required to complete your registration.</div>
                   {checkoutClientSecret && (
                     <div className="stripe-checkout-container">
                       <StripePayment clientSecret={checkoutClientSecret} onComplete={handlePaymentComplete} />

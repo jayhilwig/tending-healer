@@ -73,7 +73,7 @@ export async function POST(request: Request) {
       throw new Error("Stripe did not return an Embedded Checkout client secret.");
     }
 
-    return Response.json({ clientSecret: session.client_secret });
+    return Response.json({ clientSecret: session.client_secret, checkoutSessionId: session.id });
   } catch (error) {
     console.error("Embedded Checkout initialization failed:", error);
 
